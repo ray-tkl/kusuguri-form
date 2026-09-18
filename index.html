@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>問診票ジェネレーター</title>
+    <style>
+        :root {
+            --border: #333333;
+            --bg: #eeeeee;
+            --accent: #777;
+            --checked-bg: #eeeeee;
+            --check-color: #000099;
+            --circle-color: #ee0000;
+            /* 基本情報の列幅。全行で共有するため、ラベルの位置が常に揃う */
+            --label-w: 70px;
+            --input-max: 320px;
+            /* 入力欄の最大表示幅。狭い画面では自動で縮む */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: #222;
+            line-height: 1.5;
+        }
+
+        .wrap {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            text-align: center;
+        }
+
+        .lead {
+            text-align: center;
+            color: #555;
+            font-size: .9rem;
+            margin-top: -8px;
+        }
+
+        section {
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 14px;
+            margin: 16px 0;
+        }
+
+        section h2 {
+            font-size: 1.05rem;
+            margin: 0 0 10px;
+            border-left: 4px solid #000;
+            padding-left: 8px;
+        }
+
+        .note {
+            text-align: center;
+            color: #555;
+            font-size: .85rem;
+        }
+
+        /* text input rows */
+        .field {
+            display: grid;
+            grid-template-columns: var(--label-w) minmax(0, 1fr);
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .field label.name {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .field input[type="text"],
+        .field input[type="number"] {
+            min-width: 0;
+            padding: 8px;
+            font-size: 1rem;
+            border: 1px solid #999;
+            border-radius: 4px;
+        }
+
+        .field input[type="text"]::placeholder,
+        .field input[type="number"]::placeholder {
+            color: #bbb;
+        }
+
+        .priv {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .85rem;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid #bbb;
+            border-radius: 4px;
+            padding: 4px 8px;
+            white-space: nowrap;
+        }
+
+        .priv input {
+            width: 16px;
+            height: 16px;
+        }
+
+        .toggles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .field.disabled label.name {
+            color: #aaa;
+        }
+
+        .field.disabled input[type="text"],
+        .field.disabled input[type="number"] {
+            background: #eee;
+            color: #aaa;
+            border-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* checkbox button grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 10px;
+            background: #fff;
+            cursor: pointer;
+            user-select: none;
+            font-size: .95rem;
+            transition: background .1s, border-color .1s;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+        }
+
+        .btn.on {
+            background: var(--checked-bg);
+            border-color: var(--accent);
+        }
+
+        .btn .box {
+            width: 18px;
+            height: 18px;
+            border: 1.5px solid var(--border);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            line-height: 1;
+            color: var(--accent);
+            flex: none;
+            margin-left: 8px;
+        }
+
+        .gen {
+            display: block;
+            width: 100%;
+            max-width: 728px;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            background: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 20px auto;
+        }
+
+        .gen:hover {
+            background: #333;
+        }
+
+        #output {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #output canvas {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+        }
+
+        .dl {
+            display: block;
+            width: 100%;
+            max-width: 728px;
+            margin: 10px auto 0;
+            padding: 10px 18px;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .dl:hover {
+            background: #333;
+        }
+
+        .dev {
+            display: block;
+            width: 100%;
+            max-width: 728px;
+            margin: 10px auto 0;
+            padding: 10px 18px;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .dev:hover {
+            background: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>問診票ジェネレーター</h1>
+        <p class="lead"></p>
+
+        <section>
+            <h2>基本情報</h2>
+            <div class="toggles">
+                <label class="priv"><input type="checkbox" id="t-hw"> 年齢/身長/体重を入力する</label>
+            </div>
+            <div class="field">
+                <label class="name">氏名</label>
+                <input type="text" id="f-name" placeholder="あ">
+            </div>
+            <div class="field">
+                <label class="name">性別</label>
+                <input type="text" id="f-gender" placeholder="男">
+            </div>
+            <div class="field">
+                <label class="name">住所</label>
+                <input type="text" id="f-address" placeholder="関東(だいたいでOK)">
+            </div>
+            <div class="field">
+                <label class="name">比比:比比</label>
+                <input type="text" id="f-ratio" placeholder="3:7">
+            </div>
+            <div class="field" id="row-age">
+                <label class="name">年齢</label>
+                <input type="text" id="f-age" placeholder="20代">
+            </div>
+            <div class="field" id="row-height">
+                <label class="name">身長</label>
+                <input type="text" id="f-height" placeholder="170cm">
+            </div>
+            <div class="field" id="row-weight">
+                <label class="name">体重</label>
+                <input type="text" id="f-weight" placeholder="60kg">
+            </div>
+        </section>
+
+        <p class="note">されても良いものにはチェックを、特に自らされたいものには丸をつけてください<br>されたくないものは空白のままにしてください</p>
+
+        <div id="questions"></div>
+
+        <button class="gen" id="gen">画像を生成</button>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        /* ===== 基本情報の入力可否トグル ===== */
+        function setupToggle(checkboxId, rowIds, inputIds) {
+            const checkbox = document.getElementById(checkboxId);
+            const rows = rowIds.map(id => document.getElementById(id));
+            const inputs = inputIds.map(id => document.getElementById(id));
+            function apply() {
+                const enabled = checkbox.checked;
+                rows.forEach(row => row.classList.toggle("disabled", !enabled));
+                inputs.forEach(input => { input.disabled = !enabled; });
+            }
+            checkbox.addEventListener("change", apply);
+            apply();
+        }
+        setupToggle("t-hw", ["row-age", "row-height", "row-weight"], ["f-age", "f-height", "f-weight"]);
+
+        /* ===== 設問データ（ここを編集すれば項目を変更できます） ===== */
+        const QUESTIONS = [
+                        {
+                title: "くすぐられる部位",
+                imageCols: 6,
+                options: ["頭", "耳", "首", "二の腕", "ひじ", "手の甲", "手のひら", "わき", "胸周り", "胸", "乳首", "肋骨", "脇腹", "おなか", "背中", "鼠径部", "おしり", "おしりのきわ", "太もも(外側)", "内もも", "ひざ", "ふくらはぎ", "足首", "足の甲", "足裏"]
+            },
+            {
+                title: "くすぐられかた",
+                imageCols: 4,
+                options: ["フェザータッチ", "優しいこちょこちょ", "激しいこちょこちょ", "つんつんと突かれる", "耳に息を吹きかける", "優しく揉む", "ツボ入れ", "不意打ち", "舐める"]
+            },
+            {
+                title: "雰囲気",
+                imageCols: 3,
+                options: ["甘く優しい", "優しいいじわる", "かなりいじわる", "いちゃいちゃ", "言葉責め", "拷問"]
+            },
+            {
+                title: "体勢",
+                imageCols: 3,
+                options: ["仰向け", "うつ伏せ", "四つん這い", "横向き", "後ろから包まれる", "身動きしづらいホールド"]
+            },
+            {
+                title: "質感",
+                imageCols: 3,
+                options: ["そのままの指でコチョコチョされたい", "ベビーパウダーでサラサラ触れられたい", "", "オイルでなめらかに触れられたい", "ローションでヌルヌル触れられたい"]
+            },
+            {
+                title: "道具",
+                imageCols: 3,
+                options: ["羽", "小筆・化粧筆", "ブラシ", "ぐり爪", "目隠し", "口枷", "ヘッドマッサージャー/メタルシャワー", "電動ヘッドマッサージャー"]
+            },
+            {
+                title: "拘束",
+                imageCols: 3,
+                options: ["人力拘束", "大の字拘束", "四つん這い拘束", "立ち拘束", "椅子拘束"]
+            },
+            {
+                title: "着衣/脱衣",
+                imageCols: 3,
+                options: ["脱衣無し", "下着までOK", "全裸OK"]
+            },
+            {
+                title: "苦しくなった時/セーフワード",
+                imageCols: 3,
+                options: ["やめてほしい時は必ずやめてくれる", "ギブ無しがっつりハード"]
+            },
+            {
+                title: "快楽系",
+                imageCols: 3,
+                options: ["性器への接触(下着越し)", "性器への接触(直接)", "電マ", "ローター", "吸うやつ", "キス"]
+            }
+
+        ];
+
+        /* ===== 設問UIの描画 ===== */
+        const qRoot = document.getElementById("questions");
+        /* 各設問の状態: 0=空 / 1=チェック / 2=丸 の3値をクリックのたびに循環させる */
+        const STATE_MARK = ["", "✔", "○"];
+        const state = QUESTIONS.map(q => q.options.map(() => 0));
+
+        /* ボタンのラベル実測用（画面表示と同じフォント指定で計測する） */
+        const measureCtx = document.createElement("canvas").getContext("2d");
+        const BTN_FONT = '15.2px "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif'; // .95rem
+        /* ラベル以外に必要な幅: padding(10+10) + ボックス(14) + ラベルとの間隔(8) + border(2) + 余裕 */
+        const BTN_CHROME = 48;
+        const BTN_MIN = 90;   // 1文字ラベルでも潰れすぎない下限
+
+        function trackWidthFor(options) {
+            measureCtx.font = BTN_FONT;
+            const maxLabel = options.reduce((m, o) => Math.max(m, measureCtx.measureText(o).width), 0);
+            return Math.max(BTN_MIN, Math.ceil(maxLabel) + BTN_CHROME);
+        }
+
+        QUESTIONS.forEach((q, qi) => {
+            const sec = document.createElement("section");
+            const h2 = document.createElement("h2");
+            h2.textContent = q.title;
+            sec.appendChild(h2);
+            const grid = document.createElement("div");
+            grid.className = "grid";
+            // 最長ラベルに合わせた最小トラック幅。列数は幅に応じて auto-fill が決める
+            grid.style.gridTemplateColumns =
+                `repeat(auto-fill, minmax(min(${trackWidthFor(q.options)}px, 100%), 1fr))`;
+            q.options.forEach((opt, oi) => {
+                if (!opt) return;
+                const btn = document.createElement("div");
+                btn.className = "btn";
+                btn.innerHTML = `<span class="lbl"></span><span class="box"></span>`;
+                btn.querySelector(".lbl").textContent = opt;
+                const box = btn.querySelector(".box");
+                btn.addEventListener("click", () => {
+                    state[qi][oi] = (state[qi][oi] + 1) % STATE_MARK.length;
+                    box.textContent = STATE_MARK[state[qi][oi]];
+                    btn.classList.toggle("on", state[qi][oi] !== 0);
+                });
+                grid.appendChild(btn);
+            });
+            sec.appendChild(grid);
+            qRoot.appendChild(sec);
+        });
+
+        /* ===== 手書き風チェック（ボックスから大きくはみ出して描画） =====
+           bs=14 を基準に、左へ-2 / 下へ+14.5 / 右上へ+15,-5 まで飛び出す */
+        function drawHandCheck(ctx, bx, by, bs) {
+            const s = (bs / 14) * 1.15;   // 少しだけ大きく
+            by -= 6;                      // 6px 上へ
+            ctx.save();
+            ctx.strokeStyle = getComputedStyle(document.documentElement)
+                .getPropertyValue("--check-color").trim();
+            ctx.lineWidth = 4 * s;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(bx - 2 * s, by + 5.5 * s);
+            ctx.quadraticCurveTo(bx + 1.5 * s, by + 11 * s, bx + 4.5 * s, by + 14.5 * s);
+            ctx.quadraticCurveTo(bx + 8.5 * s, by + 4.5 * s, bx + 15 * s, by - 5 * s);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        /* ===== 手書き風丸（チェックボックスを囲むように描画） ===== */
+        function drawHandCircle(ctx, bx, by, bs) {
+            const s = (bs / 14) * 1.15;
+            const cx = bx + bs / 2;
+            const cy = by + bs / 2;
+            const rx = 8 * s;
+            const ry = 8 * s;
+            ctx.save();
+            ctx.strokeStyle = getComputedStyle(document.documentElement)
+                .getPropertyValue("--circle-color").trim();
+            ctx.lineWidth = 4 * s + 3;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            // 始点と終点を少しずらして手書きの重ね書き感を出す
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2, false);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        /* ===== タイトル横アイコン ===== */
+        const iconLeft = new Image();
+        const iconRight = new Image();
+        iconLeft.src = "icon_l.jpeg";
+        iconRight.src = "icon_r.jpeg";
+        function waitImg(img) {
+            return new Promise(resolve => {
+                if (img.complete && img.naturalWidth) resolve();
+                else { img.onload = () => resolve(); img.onerror = () => resolve(); }
+            });
+        }
+        function iconDims(img, targetH) {
+            if (!img.naturalWidth || !img.naturalHeight) return null;
+            return { w: targetH * (img.naturalWidth / img.naturalHeight), h: targetH };
+        }
+
+        /* ===== 画像生成（Canvas） ===== */
+        document.getElementById("gen").addEventListener("click", generate);
+
+        async function generate() {
+            await Promise.all([waitImg(iconLeft), waitImg(iconRight)]);
+            const name = document.getElementById("f-name").value.trim();
+            const aVal = document.getElementById("f-age").value.trim();
+            const age = aVal;
+            const ratio = document.getElementById("f-ratio").value.trim();
+            const gender = document.getElementById("f-gender").value.trim();
+            const address = document.getElementById("f-address").value.trim();
+            const height = document.getElementById("f-height").value.trim();
+            const weight = document.getElementById("f-weight").value.trim();
+            const extraEnabled = document.getElementById("t-hw").checked;
+
+            // 高解像度描画（2倍）
+            const scale = 2;
+            const W = 1000;
+            const M = 30;                 // 外側マージン
+            const cellH = 30;             // 各項目の行高
+            const qHeadGap = 36;           // 設問見出しとグリッドの間隔
+            const qBottomGap = 24;         // グリッドと次の設問見出しの間隔
+            const noteH = 40;              // 基本情報と設問1の間の注記行の高さ
+            const font = "16px 'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif";
+
+            // 高さを計算
+            let y = M;
+            const titleLineGap = 30;          // タイトルと区切り線の間隔
+            const titleH = titleLineGap * 2;  // タイトル帯（区切り線+「問診票」）の高さ
+            const titleGap = 30;              // タイトル帯と基本情報の余白
+            const headerRowH = 56;
+            const headerH = headerRowH * (extraEnabled ? 2 : 1); // 年齢/身長/体重を表示する場合は2行
+            let totalH = M + titleH + titleGap + headerH + 24 + noteH; // タイトル + ヘッダ + 余白 + 注記行
+            QUESTIONS.forEach(q => {
+                totalH += qHeadGap; // セクション見出し
+                const rows = Math.ceil(q.options.length / q.imageCols);
+                totalH += rows * cellH + qBottomGap;
+            });
+            totalH += M;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = W * scale;
+            canvas.height = totalH * scale;
+            const ctx = canvas.getContext("2d");
+            ctx.scale(scale, scale);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, W, totalH);
+            ctx.strokeStyle = "#333";
+            ctx.fillStyle = "#000";
+            ctx.textBaseline = "middle";
+
+            const innerW = W - M * 2;
+
+            // ---- タイトル帯（区切り線 + 「問診票」 + 区切り線）----
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(M, M);
+            ctx.lineTo(M + innerW, M);
+            ctx.stroke();
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#000";
+            ctx.font = "bold 18px 'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif";
+            const titleText = "問診票";
+            const titleCenterX = M + innerW / 2;
+            const titleY = M + titleLineGap;
+            ctx.fillText(titleText, titleCenterX, titleY);
+            // タイトル文字の左右にアイコンを配置
+            const titleWidth = ctx.measureText(titleText).width;
+            const iconH = 22, iconGap = 50;
+            const dimsL = iconDims(iconLeft, iconH);
+            const dimsR = iconDims(iconRight, iconH);
+            if (dimsL) {
+                ctx.drawImage(iconLeft, titleCenterX - titleWidth / 2 - iconGap - dimsL.w, titleY - dimsL.h / 2, dimsL.w, dimsL.h);
+            }
+            if (dimsR) {
+                ctx.drawImage(iconRight, titleCenterX + titleWidth / 2 + iconGap, titleY - dimsR.h / 2, dimsR.w, dimsR.h);
+            }
+            // タイトル帯右下、2本目の区切り線の上に小さく透かし文字
+            ctx.font = "15px 'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif";
+            ctx.fillStyle = "#000";
+            ctx.textAlign = "right";
+            ctx.textBaseline = "bottom";
+            ctx.fillText("google.com", M + innerW, M + titleH - 4);
+
+            ctx.beginPath();
+            ctx.moveTo(M, M + titleH);
+            ctx.lineTo(M + innerW, M + titleH);
+            ctx.stroke();
+
+            // ---- ヘッダ（1行目:氏名/性別/住所/比、2行目:年齢/身長/体重）----
+            const hy = M + titleH + titleGap;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(M, hy, innerW, headerH);
+
+            const labelW = 70;  // ラベル欄の幅。全行共通にして見た目を揃える
+
+            // groups: [{ label, value, ratio }]。ratio は「ラベル+値」を1組とした横幅の比
+            function drawHeaderRow(rowY, groups) {
+                const unit = innerW / groups.reduce((s, g) => s + g.ratio, 0);
+
+                let x = M;
+                ctx.font = font;
+                groups.forEach((g, i) => {
+                    const gw = unit * g.ratio;
+                    const lw = g.labelW || labelW; // 長いラベルは組ごとに幅を広げられる
+                    // 組の左端の仕切り線（行の先頭は外枠があるので省略）
+                    if (i > 0) { ctx.beginPath(); ctx.moveTo(x, rowY); ctx.lineTo(x, rowY + headerRowH); ctx.stroke(); }
+                    // ラベル欄
+                    ctx.fillStyle = "#f2f2f2";
+                    ctx.fillRect(x + 0.5, rowY + 0.5, lw - 1, headerRowH - 1);
+                    ctx.fillStyle = "#000";
+                    ctx.textAlign = "center";
+                    ctx.fillText(g.label, x + lw / 2, rowY + headerRowH / 2 + 6);
+                    // ラベルと値の仕切り線
+                    ctx.beginPath(); ctx.moveTo(x + lw, rowY); ctx.lineTo(x + lw, rowY + headerRowH); ctx.stroke();
+                    // 値
+                    ctx.textAlign = "left";
+                    ctx.fillText(g.value || "", x + lw + 10, rowY + headerRowH / 2 + 6);
+                    x += gw;
+                });
+            }
+
+            // 1行目：氏名 : 性別 : 住所 : 比 = 2 : 1 : 1 : 1
+            drawHeaderRow(hy, [
+                { label: "氏名", value: name, ratio: 2 },
+                { label: "性別", value: gender, ratio: 1 },
+                { label: "住所", value: address, ratio: 1 },
+                { label: "比比比比比", value: ratio, ratio: 1, labelW: 90 },
+            ]);
+
+            // 2行目：年齢 : 身長 : 体重 = 1 : 1 : 1
+            if (extraEnabled) {
+                ctx.beginPath();
+                ctx.moveTo(M, hy + headerRowH);
+                ctx.lineTo(M + innerW, hy + headerRowH);
+                ctx.stroke();
+                drawHeaderRow(hy + headerRowH, [
+                    { label: "年齢", value: age, ratio: 1 },
+                    { label: "身長", value: height, ratio: 1 },
+                    { label: "体重", value: weight, ratio: 1 },
+                ]);
+            }
+
+
+            y = hy + headerH + 24;
+
+            // ---- 注記（基本情報と設問1の間）----
+            ctx.textAlign = "left";
+            ctx.font = "15px 'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif";
+            ctx.fillStyle = "#555";
+            ctx.fillText("されても良いものにはチェックを、特に自らされたいものには丸をつけてください", M, y + 15);
+            ctx.fillText("されたくないものは空白のままにしてください", M, y +30);
+            y += noteH;
+
+            // ---- 各設問グリッド ----
+            QUESTIONS.forEach((q, qi) => {
+                // 見出し
+                ctx.textAlign = "left";
+                ctx.font = "bold 17px 'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif";
+                ctx.fillStyle = "#000";
+                ctx.fillText(q.title, M, y + 20);
+                y += qHeadGap;
+
+                // 項目レイアウト（枠線なし）。列数は設問定義（PG指定）に従う
+                const cols = q.imageCols;
+                const rows = Math.ceil(q.options.length / cols);
+                const gridTop = y;
+                const gridH = rows * cellH;
+                const colW = innerW / cols;
+
+                // 各セル
+                ctx.font = "15px 'Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif";
+                q.options.forEach((opt, oi) => {
+                    if (!opt) return;
+                    const r = Math.floor(oi / cols);
+                    const c = oi % cols;
+                    const cx = M + colW * c;
+                    const cy = gridTop + cellH * r;
+                    const mark = state[qi][oi]; // 0=空 / 1=チェック / 2=丸
+                    // チェックボックス
+                    const bs = 14;
+                    const bx = cx + 8;
+                    const by = cy + (cellH - bs) / 2 - 8;
+                    ctx.strokeStyle = "#333";
+                    ctx.lineWidth = 1.4;
+                    ctx.strokeRect(bx, by, bs, bs);
+                    if (mark === 1) drawHandCheck(ctx, bx, by, bs);
+                    else if (mark === 2) drawHandCircle(ctx, bx, by, bs);
+                    // ラベル（はみ出したチェックと重ならないよう余白を広めに取る）
+                    ctx.fillStyle = "#000";
+                    ctx.textAlign = "left";
+                    ctx.fillText(opt, bx + bs + 13, cy + cellH / 2);
+                });
+
+                y = gridTop + gridH + qBottomGap;
+            });
+
+            // ---- 表示 & ダウンロード ----
+            const out = document.getElementById("output");
+            out.innerHTML = "";
+            out.appendChild(canvas);
+            const a = document.createElement("a");
+            a.className = "dl";
+            a.textContent = "画像をダウンロード";
+            a.href = canvas.toDataURL("image/png");
+            a.download = (name || "問診票") + ".png";
+            out.appendChild(document.createElement("br"));
+            out.appendChild(a);
+
+            const dev = document.createElement("a");
+            dev.className = "dev";
+            dev.textContent = "開発：ああ";
+            dev.href = "https://x.com/";
+            dev.target = "_blank";
+            dev.rel = "noopener noreferrer";
+            out.appendChild(dev);
+
+            out.scrollIntoView({ behavior: "smooth" });
+        }
+    </script>
+</body>
+
+</html>
